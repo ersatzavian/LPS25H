@@ -24,59 +24,44 @@ press <- LPS25H(hardware.i2c89, LPS25H_ADDR);
 
 ```
 
-## getPressureHPa()
-Returns pressure in hectopascals (hundreds of Pascals). Also known as mBar.
+## LPS25H.read(callback)
+The **.read()** function reads the pressure in HPa, and executes the callback with the result:
 
 ```
-server.log(press.getPressureHPa() + " mBar");
+pressure.read(functin(pressureHPa) {
+  server.log(pressureHPa + " HPa");
+});
 ```
 
-## getPressureKPa()
-Returns pressure in kilopascals.
-
-```
-server.log(press.getPressureKPa() + " kPa");
-```
-
-## getPressureInHg()
-Returns pressure in Inches of Mercury.
-
-```
-server.log(press.getPressureInHg() + " \"Hg);
-```
-
-## getRawPressure()
-Returns the raw value of PRESS_OUT_H, PRESS_OUT_L, and PRESS_OUT_XL. Units are hPa * 4096.
-
-## getTemp()
+## LPS25H.getTemp()
 Returns temperature in degrees Celsius.
 
 ```
 server.log(press.getTemp() "C");
 ```
 
-## softReset()
+## LPS25H.softReset()
 Reset the LPS25H from software. Device will come up disabled.
 
 ```
 press.softReset();
 ```
 
-## enable(bool state)
+## LPS25H.enable(bool state)
 Enable/disable the LPS25H. The device must be enabled before attempting to read the pressure or temperature.
 
 ```
 press.enable(1);
 ```
 
-## getReferencePressure()
+## LPS25H.getReferencePressure()
 Get the internal offset pressure set in the factory. Returns a raw value in the same units as the raw pressure registers (hPa * 4096).
 
 ```
 server.log("Internal Reference Pressure Offset = "+press.getReferencePressure());
 ```
 
-## setPressNpts(int npts)
+## LPS25H.setPressNpts(int npts)
 Set the number of readings taken and internally averaged to produce a pressure result. The value provided will be rounded up to the nearest valid npts value. Valid values are 8, 32, and 128.
 
 ```
@@ -87,7 +72,7 @@ press.setPressNpts(8);
 press.setPressNpts(128);
 ```
 
-## setTempNpts(int npts)
+## LPS25H.setTempNpts(int npts)
 Set the number of readings taken and internally averaged to produce a temperature result. The value provided will be rounded up to the nearest valid npts value. Valid values are 8, 16, 32, and 64.
 
 ```
@@ -98,14 +83,14 @@ press.setTempNpts(8);
 press.setTempNpts(64);
 ```
 
-## setIntEnable(bool state)
+## LPS25H.setIntEnable(bool state)
 
 ```
 // Enable interrupts on the LPS25H's interrupt pin
 press.setIntEnable(1);
 ```
 
-## setFifoEnable(bool state)
+## LPS25H.setFifoEnable(bool state)
 Enable or disable the internal FIFO for continuous pressure and temperature readings. Disabled by default.
 
 ```
@@ -113,7 +98,7 @@ Enable or disable the internal FIFO for continuous pressure and temperature read
 press.setFifoEnable(1);
 ```
 
-## setIntActivehigh(bool state)
+## LPS25H.setIntActivehigh(bool state)
 Set the interrupt polarity for the LPS25H. True configures the interrupt pin to be active-high; false configures the pin for active-low.
 
 ```
@@ -124,7 +109,7 @@ press.setIntActivehigh(1);
 press.setIntActivehigh(0);
 ```
 
-## setIntPushpull(bool state)
+## LPS25H.setIntPushpull(bool state)
 Select between push-pull and open-drain states for the interrupt pin. True sets the interrupt pin to push-pull; false sets the interrupt pin to open-drain.
 
 ```
@@ -135,7 +120,7 @@ press.setIntPushpull(1);
 press.setIntPushpull(0);
 ```
 
-## setIntConfig(bool latch, bool diff_press_low, bool diff_press_high)
+## LPS25H.setIntConfig(bool latch, bool diff_press_low, bool diff_press_high)
 Configure interrupt sources for the interrupt pin:
 
 * latch: set true to require that the interrupt source be read before the interrupt pin is de-asserted
@@ -166,7 +151,7 @@ if (val & 0x01) {
 }
 ```
 
-## setPressThresh(int threshold)
+## LPS25H.setPressThresh(int threshold)
 Set the threshold value for pressure interrupts. Units are hPa * 4096.
 
 ```
@@ -174,6 +159,10 @@ Set the threshold value for pressure interrupts. Units are hPa * 4096.
 local thresh = 1000 * 4096;
 press.setPressThresh(thresh);
 ```
+
+## LPS25H.getRawPressure()
+Returns the raw value of PRESS_OUT_H, PRESS_OUT_L, and PRESS_OUT_XL. Units are hPa * 4096.
+
 
 #License
 The LPS25H library is licensed under the [MIT License](./LICENSE).
