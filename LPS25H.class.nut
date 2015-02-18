@@ -4,6 +4,31 @@
 
 class LPS25H {
     static MEAS_TIME = 0.5; // seconds; time to complete pressure conversion
+
+    static REF_P_XL        = 0x08;
+    static REF_P_L         = 0X09;
+    static REF_P_H         = 0x0A;
+    static WHO_AM_I        = 0x0F;
+    static RES_CONF        = 0x10;
+    static CTRL_REG1       = 0x20;
+    static CTRL_REG2       = 0x21;
+    static CTRL_REG3       = 0x22;
+    static CTRL_REG4       = 0x23;
+    static INT_CFG         = 0x24;
+    static INT_SOURCE      = 0x25;
+    static STATUS_REG      = 0x27;
+    static PRESS_OUT_XL    = 0x28;
+    static PRESS_OUT_L     = 0x29;
+    static PRESS_OUT_H     = 0x2A;
+    static TEMP_OUT_L      = 0x2B;
+    static TEMP_OUT_H      = 0x2C;
+    static FIFO_CTRL       = 0x2E;
+    static FIFO_STATUS     = 0x2F;
+    static THS_P_L         = 0x30;
+    static THS_P_H         = 0x31;
+    static RPDS_L          = 0x39;
+    static RPDS_H          = 0x3A;
+
     _i2c        = null;
     _addr       = null;
 
@@ -19,32 +44,6 @@ class LPS25H {
 
     // -------------------------------------------------------------------------
     function init() {
-        enum LPS25H_REG {
-            REF_P_XL        = 0x08,
-            REF_P_L         = 0X09,
-            REF_P_H         = 0x0A,
-            WHO_AM_I        = 0x0F,
-            RES_CONF        = 0x10,
-            CTRL_REG1       = 0x20,
-            CTRL_REG2       = 0x21,
-            CTRL_REG3       = 0x22,
-            CTRL_REG4       = 0x23,
-            INT_CFG         = 0x24,
-            INT_SOURCE      = 0x25,
-            STATUS_REG      = 0x27,
-            PRESS_OUT_XL    = 0x28,
-            PRESS_OUT_L     = 0x29,
-            PRESS_OUT_H     = 0x2A,
-            TEMP_OUT_L      = 0x2B,
-            TEMP_OUT_H      = 0x2C,
-            FIFO_CTRL       = 0x2E,
-            FIFO_STATUS     = 0x2F,
-            THS_P_L         = 0x30,
-            THS_P_H         = 0x31,
-            RPDS_L          = 0x39,
-            RPDS_H          = 0x3A
-        }
-
         enable(1);
         _referencePressure = getReferencePressure();
         enable(0);
