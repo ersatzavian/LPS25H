@@ -16,7 +16,7 @@ The LSP25H should be connected as follows:
 ## Constructor
 The constructor takes two arguments: a pre-configured I2C bus and an I2C address.
 
-```
+```squirrel
 const LPS25H_ADDR     = 0xB8; // 8-bit I2C Address for LPS25H
 
 hardware.i2c89.configure(CLOCK_SPEED_400_KHZ);
@@ -27,7 +27,7 @@ press <- LPS25H(hardware.i2c89, LPS25H_ADDR);
 ## LPS25H.read(callback)
 The **.read()** function reads the pressure in HPa, and executes the callback with the result:
 
-```
+```squirrel
 pressure.read(functin(pressureHPa) {
   server.log(pressureHPa + " HPa");
 });
@@ -36,35 +36,35 @@ pressure.read(functin(pressureHPa) {
 ## LPS25H.getTemp()
 Returns temperature in degrees Celsius.
 
-```
+```squirrel
 server.log(press.getTemp() "C");
 ```
 
 ## LPS25H.softReset()
 Reset the LPS25H from software. Device will come up disabled.
 
-```
+```squirrel
 press.softReset();
 ```
 
 ## LPS25H.enable(bool state)
 Enable/disable the LPS25H. The device must be enabled before attempting to read the pressure or temperature.
 
-```
+```squirrel
 press.enable(1);
 ```
 
 ## LPS25H.getReferencePressure()
 Get the internal offset pressure set in the factory. Returns a raw value in the same units as the raw pressure registers (hPa * 4096).
 
-```
+```squirrel
 server.log("Internal Reference Pressure Offset = "+press.getReferencePressure());
 ```
 
 ## LPS25H.setPressNpts(int npts)
 Set the number of readings taken and internally averaged to produce a pressure result. The value provided will be rounded up to the nearest valid npts value. Valid values are 8, 32, and 128.
 
-```
+```squirrel
 // fastest readings, lowest precision
 press.setPressNpts(8);
 
@@ -75,7 +75,7 @@ press.setPressNpts(128);
 ## LPS25H.setTempNpts(int npts)
 Set the number of readings taken and internally averaged to produce a temperature result. The value provided will be rounded up to the nearest valid npts value. Valid values are 8, 16, 32, and 64.
 
-```
+```squirrel
 // fastest readings, lowest precision
 press.setTempNpts(8);
 
@@ -85,7 +85,7 @@ press.setTempNpts(64);
 
 ## LPS25H.setIntEnable(bool state)
 
-```
+```squirrel
 // Enable interrupts on the LPS25H's interrupt pin
 press.setIntEnable(1);
 ```
@@ -93,7 +93,7 @@ press.setIntEnable(1);
 ## LPS25H.setFifoEnable(bool state)
 Enable or disable the internal FIFO for continuous pressure and temperature readings. Disabled by default.
 
-```
+```squirrel
 // Enable internal FIFO for continuous pressure readings
 press.setFifoEnable(1);
 ```
@@ -101,7 +101,7 @@ press.setFifoEnable(1);
 ## LPS25H.setIntActivehigh(bool state)
 Set the interrupt polarity for the LPS25H. True configures the interrupt pin to be active-high; false configures the pin for active-low.
 
-```
+```squirrel
 // Set interrupt pin to active-high
 press.setIntActivehigh(1);
 
@@ -112,7 +112,7 @@ press.setIntActivehigh(0);
 ## LPS25H.setIntPushpull(bool state)
 Select between push-pull and open-drain states for the interrupt pin. True sets the interrupt pin to push-pull; false sets the interrupt pin to open-drain.
 
-```
+```squirrel
 // Set interrupt pin to push-pull
 press.setIntPushpull(1);
 
@@ -127,7 +127,7 @@ Configure interrupt sources for the interrupt pin:
 * diff_press_low: set true to throw interrupts on differential pressure below the set threshold
 * diff_press_high: set true to throw interrupts on differential pressure above the set threshold
 
-```
+```squirrel
 // Configure interrupt pin to assert on pressure above threshold and latch until cleared
 press.setIntConfig(1, 0, 1);
 ```
@@ -139,7 +139,7 @@ Interrupt source is stored in the INT_SOURCE register (0x25). To clear a latched
 | 1 | differential pressure low |
 | 0 | differential pressure high |
 
-```
+```squirrel
 // Read interrupt source register to see why interrupt was triggered
 local val = press._read(LPS25H_REG.INT_SOURCE,1)[0];
 
@@ -154,7 +154,7 @@ if (val & 0x01) {
 ## LPS25H.setPressThresh(int threshold)
 Set the threshold value for pressure interrupts. Units are hPa * 4096.
 
-```
+```squirrel
 // Set threshold pressure to 1000 mBar
 local thresh = 1000 * 4096;
 press.setPressThresh(thresh);
