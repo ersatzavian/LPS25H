@@ -26,7 +26,7 @@ pressure <- LPS25H(hardware.i2c89, LPS25H_ADDR)
 
 ```
 
-### Functions
+### Class Methods
 
 ### read(*callback*)
 
