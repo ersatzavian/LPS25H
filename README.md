@@ -2,13 +2,13 @@
 
 Author: [Tom Byrne](https://github.com/ersatzavian/)
 
-The [LPS25H](http://www.st.com/web/en/resource/technical/document/datasheet/DM00066332.pdf) is a MEMS absolute pressure sensor. This sensor features large functional range (260-1260hPa) and internal averaging for improved precision.
+The [LPS25H](http://www.st.com/web/en/resource/technical/document/datasheet/DM00066332.pdf) is a MEMS absolute pressure sensor. This sensor features a large functional range (260-1260hPa) and internal averaging for improved precision.
 
 The LPS25HTR can interface over I&sup2;C or SPI. This class addresses only I&sup2;C for the time being.
 
 ## Hardware
 
-The LSP25H should be connected as follows:
+The LPS25H should be connected as follows:
 
 ![LPS25H Circuit](./circuit.png)
 
@@ -16,7 +16,7 @@ The LSP25H should be connected as follows:
 
 ### Constructor
 
-The constructor takes two arguments in instantiate the class: a pre-configured I&sup2;C bus and the sensor’s I&sup2;C address.
+The constructor takes two arguments to instantiate the class: a pre-configured I&sup2;C bus and the sensor’s I&sup2;C address.
 
 ```squirrel
 const LPS25H_ADDR = 0xB8    // 8-bit I2C Address for LPS25H (0x5C on datasheet)
