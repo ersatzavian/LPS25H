@@ -6,13 +6,13 @@ The [LPS25H](http://www.st.com/web/en/resource/technical/document/datasheet/DM00
 
 The LPS25HTR can interface over I&sup2;C or SPI. This class addresses only I&sup2;C for the time being.
 
+**To add this library to your project, add** `#require "LPS25H.class.nut:1.0.0"` **to the top of your device code**
+
 ## Hardware
 
 The LPS25H should be connected as follows:
 
 ![LPS25H Circuit](./circuit.png)
-
-**To add this library to your project, add `#require "LPS25H.class.nut:1.0.0"` to the top of your device code**
 
 ## Class Usage
 
