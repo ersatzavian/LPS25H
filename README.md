@@ -12,6 +12,8 @@ The LPS25H should be connected as follows:
 
 ![LPS25H Circuit](./circuit.png)
 
+**To add this library to your project, add `#require "LPS25H.class.nut:1.0.0"` to the top of your device code**
+
 ## Class Usage
 
 ### Constructor
