@@ -4,13 +4,19 @@ Author: [Tom Byrne](https://github.com/ersatzavian/)
 
 The [LPS25H](http://www.st.com/web/en/resource/technical/document/datasheet/DM00066332.pdf) is a MEMS absolute pressure sensor. This sensor features a large functional range (260-1260hPa) and internal averaging for improved precision.
 
-The LPS25HTR can interface over I&sup2;C or SPI. This class addresses only I&sup2;C for the time being.
+The LPS25H can interface over I&sup2;C or SPI. This class addresses only I&sup2;C for the time being.
 
 **To add this library to your project, add** `#require "LPS25H.class.nut:1.0.0"` **to the top of your device code**
 
 ## Hardware
 
-The LPS25H should be connected as follows:
+To use the LPS25H, connect the I2C interface to any of the imp's I2C Interfaces. To see which pins can act as an I2C interface, see the [imp pin mux](https://electricimp.com/docs/hardware/imp/pinmux/) on the Electric Imp Developer Center.
+
+The LPS25H Interrupt Pin behavior can be configured through this class. The corresponding pin on the imp and associated callback are not configured or managed through this class. To use the interrupt pin:
+
+- Connect the LPS25H's "INT1" pin to an imp pin
+- Configure the imp pin connected to INT1 as a DIGITAL_IN with your desired callback function
+- Use the methods in this class to configure the interrupt behavior as needed
 
 ![LPS25H Circuit](./circuit.png)
 
@@ -21,10 +27,10 @@ The LPS25H should be connected as follows:
 The constructor takes two arguments to instantiate the class: a pre-configured I&sup2;C bus and the sensor’s I&sup2;C address.
 
 ```squirrel
-const LPS25H_ADDR = 0xB8    // 8-bit I2C Address for LPS25H (0x5C on datasheet)
+const LPS25H_ADDR = 0xB8;    // 8-bit I2C Address for LPS25H (0x5C on datasheet)
 
-hardware.i2c89.configure(CLOCK_SPEED_400_KHZ)
-pressure <- LPS25H(hardware.i2c89, LPS25H_ADDR)
+hardware.i2c89.configure(CLOCK_SPEED_400_KHZ);
+pressure <- LPS25H(hardware.i2c89, LPS25H_ADDR);
 
 ```
 
@@ -36,8 +42,8 @@ The **read()** method reads the pressure in hPa and executes the callback passed
 
 ```squirrel
 pressure.read(function(pressureHPa) {
-  server.log(pressureHPa + " hPa")
-})
+  server.log(pressureHPa + " hPa");
+});
 ```
 
 ### getTemp()
@@ -45,7 +51,7 @@ pressure.read(function(pressureHPa) {
 Returns temperature in degrees Celsius.
 
 ```squirrel
-server.log(pressure.getTemp() + "C")
+server.log(pressure.getTemp() + "C");
 ```
 
 ### softReset()
@@ -53,7 +59,7 @@ server.log(pressure.getTemp() + "C")
 Reset the LPS25H from software. Device will come up disabled.
 
 ```squirrel
-pressure.softReset()
+pressure.softReset();
 ```
 
 ### enable(*state*)
@@ -61,7 +67,7 @@ pressure.softReset()
 Enable (*state* = 1) or disable (*state* = 0) the LPS25H. The device must be enabled before attempting to read the pressure or temperature.
 
 ```squirrel
-pressure.enable(1)    // Enable the sensor
+pressure.enable(1);    // Enable the sensor
 ```
 
 ### getReferencePressure()
@@ -69,7 +75,7 @@ pressure.enable(1)    // Enable the sensor
 Get the internal offset pressure set in the factory. Returns a raw value in the same units as the raw pressure registers (hPa * 4096)
 
 ```squirrel
-server.log("Internal Reference Pressure Offset = " + pressure.getReferencePressure())
+server.log("Internal Reference Pressure Offset = " + pressure.getReferencePressure());
 ```
 
 ### setPressNpts(*numberOfReadings*)
@@ -77,13 +83,13 @@ server.log("Internal Reference Pressure Offset = " + pressure.getReferencePressu
 Set the number of readings taken and then internally averaged to produce a pressure result. The value provided will be rounded up to the nearest valid value: 8, 32 and 128.
 
 ```squirrel
-// Dastest readings, lowest precision
+// Fastest readings, lowest precision
 
-pressure.setPressNpts(8)
+pressure.setPressNpts(8);
 
 // Slowest readings, highest precision
 
-pressure.setPressNpts(128)
+pressure.setPressNpts(128);
 ```
 
 ### setTempNpts(*numberOfReadings*)
@@ -91,13 +97,13 @@ pressure.setPressNpts(128)
 Set the number of readings taken and internally averaged to produce a temperature result. The value provided will be rounded up to the nearest valid value: 8, 16, 32 and 64.
 
 ```squirrel
-// Dastest readings, lowest precision
+// Fastest readings, lowest precision
 
-pressure.setTempNpts(8)
+pressure.setTempNpts(8);
 
 // Slowest readings, highest precision
 
-pressure.setTempNpts(64)
+pressure.setTempNpts(64);
 ```
 
 ### setIntEnable(*state*)
@@ -107,7 +113,7 @@ Enable (*state* = 1) or disable (*state* = 0) the LPS25H’s interrupt pin.
 ```squirrel
 // Enable interrupts on the LPS25H's interrupt pin
 
-pressure.setIntEnable(1)
+pressure.setIntEnable(1);
 ```
 
 ### setFifoEnable(*state*)
@@ -117,7 +123,7 @@ Enable (*state* = 1) or disable (*state* = 0) the internal FIFO for continuous p
 ```squirrel
 // Enable internal FIFO for continuous pressure readings
 
-pressure.setFifoEnable(1)
+pressure.setFifoEnable(1);
 ```
 
 ### setIntActivehigh(*state*)
@@ -127,11 +133,11 @@ Set the LPS25H’s interrupt polarity: `1` configures the interrupt pin to be ac
 ```squirrel
 // Set interrupt pin to active-high
 
-pressure.setIntActivehigh(1)
+pressure.setIntActivehigh(1);
 
 // Set interrupt pin to active-low
 
-pressure.setIntActivehigh(0)
+pressure.setIntActivehigh(0);
 ```
 
 ### setIntPushpull(*state*)
@@ -141,7 +147,7 @@ Select between push-pull (*state* = 1) and open-drain (*state* = 0) states for t
 ```squirrel
 // Set interrupt pin to push-pull
 
-pressure.setIntPushpull(1)
+pressure.setIntPushpull(1);
 
 // Set interrupt pin to open-drain
 
@@ -159,7 +165,7 @@ Configure the sources for the interrupt pin:
 ```squirrel
 // Configure interrupt pin to assert on pressure above threshold and latch until cleared
 
-pressure.setIntConfig(1, 0, 1)
+pressure.setIntConfig(1, 0, 1);
 ```
 The interrupt source is stored in the INT_SOURCE register (0x25). To clear a latched interrupt or find out why the interrupt pin was asserted, read this register and check bits [2:0]:
 
@@ -172,16 +178,14 @@ The interrupt source is stored in the INT_SOURCE register (0x25). To clear a lat
 ```squirrel
 // Read interrupt source register to see why interrupt was triggered
 
-local val = pressure.read(LPS25H.INT_SOURCE, 1)[0]
+local val = pressure.read(LPS25H.INT_SOURCE, 1)[0];
 
-if (val & 0x02) 
-{
-	server.log("Differential Pressure Low Event Occurred")
+if (val & 0x02) {
+	server.log("Differential Pressure Low Event Occurred");
 }
 
-if (val & 0x01) 
-{
-	server.log("Differential Pressure High Event Occurred")
+if (val & 0x01) {
+	server.log("Differential Pressure High Event Occurred");
 }
 ```
 
@@ -192,8 +196,8 @@ Set the threshold value (integer) for pressure interrupts. Units are hPa * 4096.
 ```squirrel
 // Set threshold pressure to 1000 mBar
 
-local thresh = 1000 * 4096
-pressure.setPressThresh(thresh)
+local thresh = 1000 * 4096;
+pressure.setPressThresh(thresh);
 ```
 
 ### getRawPressure()
