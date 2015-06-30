@@ -24,25 +24,37 @@ The LPS25H Interrupt Pin behavior can be configured through this class. The corr
 
 ### Constructor
 
-The constructor takes two arguments to instantiate the class: a pre-configured I&sup2;C bus and the sensor’s I&sup2;C address.
+The constructor takes two arguments to instantiate the class: a pre-configured I&sup2;C bus and the sensor’s I&sup2;C address. The I&sup2;C address is optional and defaults to 0xB8 (8-bit address).
 
 ```squirrel
-const LPS25H_ADDR = 0xB8;    // 8-bit I2C Address for LPS25H (0x5C on datasheet)
+const LPS25H_ADDR = 0xBA;    // non-default 8-bit I2C Address for LPS25H (SA0 pulled high)
 
 hardware.i2c89.configure(CLOCK_SPEED_400_KHZ);
-pressure <- LPS25H(hardware.i2c89, LPS25H_ADDR);
-
+pressureSensor <- LPS25H(hardware.i2c89, LPS25H_ADDR);
 ```
 
 ### Class Methods
 
-### read(*callback*)
 
-The **read()** method reads the pressure in hPa and executes the callback passed as its only parameter with the result. The callback takes a single parameter: the pressure reading (float).
+### enable(*state*)
+
+Enable (*state* = true) or disable (*state* = false) the LPS25H. The device must be enabled before attempting to read the pressure or temperature.
 
 ```squirrel
-pressure.read(function(pressureHPa) {
-  server.log(pressureHPa + " hPa");
+pressure.enable(true);    // Enable the sensor
+```
+
+### read(*callback*)
+
+The **read()** method reads the pressure in hPa and executes the callback passed as its only parameter with the result. The callback takes a single parameter, a table. If an error occurs during the reading, the table passed to the callback will contain a key "err", with a description of the error, and the pressure reading will be null. If the pressure is read successfully, it will be stored in the table with the key "pressure".
+
+```squirrel
+pressureSensor.read(function(result) {
+  if ("err" in result) {
+    server.error("An Error Occurred: "+result.err);
+  } else {
+  	server.log(format("Current Pressure: %0.2f hPa", result.pressure));
+  }
 });
 ```
 
@@ -51,31 +63,59 @@ pressure.read(function(pressureHPa) {
 Returns temperature in degrees Celsius.
 
 ```squirrel
-server.log(pressure.getTemp() + "C");
+server.log("Current Temperature: "+pressure.getTemp() + " C");
 ```
 
-### softReset()
+### configureInterrupt(*enable*, [*threshold*, *options*])
 
-Reset the LPS25H from software. Device will come up disabled.
+This method configures the interrupt pin driver, threshold, and sources.
+
+- *enable* is a required boolean parameter. Set true to enable the interrupt pin.
+- *threshold* is an optional parameter, to set the interrupt threshold pressure. This threshold applies regardless of whether the interrupt is configured to fire on high differential pressure or low differential pressure. The threshold is expressed in hectopascals (hPa).
+- *options* is an optional bitfield which allows the pin driver and interrupt condition to be configured by OR'ing together the appropriate flags:
+
+| Constant | Description | Notes |
+| -------- | ----------- | ----- |
+| INT_ACTIVEHIGH | Interrupt pin active-high | Interrupt pin is active-low by default|
+| INT_PUSHPULL | Interrupt pin driver push-pull | Interrupt pin driver open-drain by default |
+| INT_LATCH | Interrupts latched | Clear latched interrupts by calling getInterruptSrc() |
+| INT_LOW_PRESSURE | Interrupt on pressure below threshold | |
+| INT_HIGH_PRESSURE | Interrupt on pressure above threshold | |
 
 ```squirrel
-pressure.softReset();
+// Enable interrupt, configure as push-pull, active-high, latched. Fire interrupt if pressure > 800 hPa
+pressureSensor.configureInterrupt(true, 800, INT_ACTIVEHIGH | INT_PUSHPULL | INT_LATCH | INT_HIGH_PRESSURE);
 ```
 
-### enable(*state*)
-
-Enable (*state* = 1) or disable (*state* = 0) the LPS25H. The device must be enabled before attempting to read the pressure or temperature.
-
 ```squirrel
-pressure.enable(1);    // Enable the sensor
+// Enable interrupt, configure as open-drain, active-low, latched. Fire interrupt if pressure < 760 hPa
+pressureSensor.configureInterrupt(ture, 760, INT_LATCH | INT_LOW_PRESSURE);
 ```
 
-### getReferencePressure()
+### getInterruptSrc() 
 
-Get the internal offset pressure set in the factory. Returns a raw value in the same units as the raw pressure registers (hPa * 4096)
+Determine what caused an interrupt, and clear latched interrupt. This method returns an integer which can be compared to the following flags to determine the interrupt status and source. Latched interrupts are cleared as a side effect.
+
+| Constant | Description | Notes |
+| -------- | ----------- | ----- |
+| INT_ACTIVE | Set if an interrupt is currently active or latched | |
+| INT_HIGH_PRESSURE_ACTIVE | Set if the active or latched interrupt was due to a high pressure event | |
+| INT_LOW_PRESSURE_ACTIVE | Set if the active or latched interrupt was due to a low pressure event | |
 
 ```squirrel
-server.log("Internal Reference Pressure Offset = " + pressure.getReferencePressure());
+// Check the interrupt source and clear the latched interrupt
+local intSrc = pressureSensor.getInterruptSrc();
+if (intSrc & LPS25H.INT_ACTIVE) {
+  // interrupt is active
+  if (intSrc & LPS25H.INT_HIGH_PRESSURE_ACTIVE) {
+    server.log("High Pressure Interrupt Occurred!");
+  } 
+  if (intSrc & LPS25H.INT_LOW_PRESSURE_ACTIVE) {
+    server.log("Low Pressure Interrupt Occurred!");
+  }
+} else {
+  server.log("No Interrupts Active");
+}
 ```
 
 ### setPressNpts(*numberOfReadings*)
@@ -106,16 +146,6 @@ pressure.setTempNpts(8);
 pressure.setTempNpts(64);
 ```
 
-### setIntEnable(*state*)
-
-Enable (*state* = 1) or disable (*state* = 0) the LPS25H’s interrupt pin.
-
-```squirrel
-// Enable interrupts on the LPS25H's interrupt pin
-
-pressure.setIntEnable(1);
-```
-
 ### setFifoEnable(*state*)
 
 Enable (*state* = 1) or disable (*state* = 0) the internal FIFO for continuous pressure and temperature readings. Disabled by default.
@@ -126,78 +156,20 @@ Enable (*state* = 1) or disable (*state* = 0) the internal FIFO for continuous p
 pressure.setFifoEnable(1);
 ```
 
-### setIntActivehigh(*state*)
+### getReferencePressure()
 
-Set the LPS25H’s interrupt polarity: `1` configures the interrupt pin to be active-high; `0` configures the pin for active-low.
+Get the internal offset pressure set in the factory. Returns a raw value in the same units as the raw pressure registers (hPa * 4096)
 
 ```squirrel
-// Set interrupt pin to active-high
-
-pressure.setIntActivehigh(1);
-
-// Set interrupt pin to active-low
-
-pressure.setIntActivehigh(0);
+server.log("Internal Reference Pressure Offset = " + pressure.getReferencePressure());
 ```
 
-### setIntPushpull(*state*)
+### softReset()
 
-Select between push-pull (*state* = 1) and open-drain (*state* = 0) states for the interrupt pin.
-
-```squirrel
-// Set interrupt pin to push-pull
-
-pressure.setIntPushpull(1);
-
-// Set interrupt pin to open-drain
-
-pressure.setIntPushpull(0)
-```
-
-### setIntConfig(*latch*, *differentialPressureLow*, *differentialPressureHigh*)
-
-Configure the sources for the interrupt pin:
-
-- *latch* set `1` to require that the interrupt source be read before the interrupt pin is de-asserted
-- *differentialPressureLow* set `1` to throw interrupts on differential pressure below the set threshold
-- *differentialPressureHigh* set `1` to throw interrupts on differential pressure above the set threshold
+Reset the LPS25H from software. Device will come up disabled.
 
 ```squirrel
-// Configure interrupt pin to assert on pressure above threshold and latch until cleared
-
-pressure.setIntConfig(1, 0, 1);
-```
-The interrupt source is stored in the INT_SOURCE register (0x25). To clear a latched interrupt or find out why the interrupt pin was asserted, read this register and check bits [2:0]:
-
-| bit | meaning |
-| --- | ------- |
-| 2 | interrupt is currently active |
-| 1 | differential pressure low |
-| 0 | differential pressure high |
-
-```squirrel
-// Read interrupt source register to see why interrupt was triggered
-
-local val = pressure.read(LPS25H.INT_SOURCE, 1)[0];
-
-if (val & 0x02) {
-	server.log("Differential Pressure Low Event Occurred");
-}
-
-if (val & 0x01) {
-	server.log("Differential Pressure High Event Occurred");
-}
-```
-
-### setPressThresh(*threshold*)
-
-Set the threshold value (integer) for pressure interrupts. Units are hPa * 4096.
-
-```squirrel
-// Set threshold pressure to 1000 mBar
-
-local thresh = 1000 * 4096;
-pressure.setPressThresh(thresh);
+pressure.softReset();
 ```
 
 ### getRawPressure()

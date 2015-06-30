@@ -1,6 +1,9 @@
 // Copyright (c) 2015 Electric Imp
 // This file is licensed under the MIT License
 // http://opensource.org/licenses/MIT
+//
+// Driver class for the LPS25H Air Pressure Sensor
+// http://www.st.com/web/en/resource/technical/document/datasheet/DM00066332.pdf
 
 class LPS25H {
     static MEAS_TIME_SECONDS = 0.5; // seconds; time to complete pressure conversion
@@ -28,6 +31,16 @@ class LPS25H {
     static THS_P_H         = 0x31;
     static RPDS_L          = 0x39;
     static RPDS_H          = 0x3A;
+
+    // interrupt bitfield 
+    static INT_HIGH_PRESSURE_ACTIVE = 0x01;
+    static INT_LOW_PRESSURE_ACTIVE  = 0x02;
+    static INT_ACTIVE               = 0x04;
+    static INT_ACTIVEHIGH           = 0x08;
+    static INT_PUSHPULL             = 0x10;
+    static INT_LATCH                = 0x20;
+    static INT_LOW_PRESSURE         = 0x40;
+    static INT_HIGH_PRESSURE        = 0x80;
 
     _i2c        = null;
     _addr       = null;
@@ -136,14 +149,60 @@ class LPS25H {
     }
 
     // -------------------------------------------------------------------------
-    function setIntEnable(state) {
+    function configureInterrupt(enable, threshold = null, options = 0) {
+        
+        // set the enable -----------------------------------------------------
         local val = _readReg(CTRL_REG1, 1)[0];
-        if (state) {
+        if (enable) {
             val = val | 0x08;
         } else {
             val = val & 0xF7;
         }
-        local res = _writeReg(CTRL_REG1, val & 0xFF);
+        _writeReg(CTRL_REG1, val & 0xFF);
+
+        // set the threshold, if it was given ---------------------------------
+        if (threshold != null) {
+            threshold = threshold * 4096;
+            _writeReg(THS_P_H, (threshold & 0xFF00) >> 8);
+            _writeReg(THS_P_L, threshold & 0xFF);
+        }
+
+        // check and set the options ------------------------------------------
+
+        // interrupt pin active-high (active-low by default)
+        val = _readReg(CTRL_REG3, 1)[0];
+        if (options & INT_ACTIVEHIGH) {
+            val = val & 0x7F;
+        } else {
+            val = val | 0x80;
+        }
+        // interrupt pin push-pull (open drain by default)
+        if (options & INT_PUSHPULL) {
+            val = val & 0xBF;
+        } else {
+            val = val | 0x40;
+        }
+        _writeReg(CTRL_REG3, val & 0xFF);
+
+        // interrupt latched
+        val = _readReg(CTRL_REG1, 1)[0];
+        if (options & INT_LATCH) {
+            val = val | 0x04;
+        }
+        // interrupt on low differential pressure
+        if (options & INT_LOW_PRESSURE) {
+            val = val & 0x02;
+        }
+        // interrupt on high differential pressure
+        if (options & INT_HIGH_PRESSURE) {
+            val = val | 0x01;
+        }
+        _writeReg(CTRL_REG1, val & 0xFF);
+    }
+
+    // -------------------------------------------------------------------------
+    function getInterruptSrc() {
+        val = _readReg(INT_SOURCE, 1)[0];
     }
 
     // -------------------------------------------------------------------------
@@ -160,49 +219,6 @@ class LPS25H {
     // -------------------------------------------------------------------------
     function softReset(state) {
         local res = _writeReg(CTRL_REG2, 0x04);
-    }
-
-    // -------------------------------------------------------------------------
-    function setIntActivehigh(state) {
-        local val = _readReg(CTRL_REG3, 1)[0];
-        if (state) {
-            val = val & 0x7F;
-        } else {
-            val = val | 0x80;
-        }
-        local res = _writeReg(CTRL_REG3, val & 0xFF);
-    }
-
-    // -------------------------------------------------------------------------
-    function setIntPushpull(state) {
-        local val = _readReg(CTRL_REG3, 1)[0];
-        if (state) {
-            val = val & 0xBF;
-        } else {
-            val = val | 0x40;
-        }
-        local res = _writeReg(CTRL_REG3, val & 0xFF);
-    }
-
-    // -------------------------------------------------------------------------
-    function setIntConfig(latch, diff_press_low, diff_press_high) {
-        local val = _readReg(CTRL_REG1, 1)[0];
-        if (latch) {
-            val = val | 0x04;
-        }
-        if (diff_press_low) {
-            val = val & 0x02;
-        }
-        if (diff_press_high) {
-            val = val | 0x01;
-        }
-        local res = _writeReg(CTRL_REG1, val & 0xFF);
-    }
-
-    // -------------------------------------------------------------------------
-    function setPressThresh(press_thresh) {
-        _writeReg(LPS25H.THS_P_H, (press_thresh & 0xFF00) >> 8);
-        _writeReg(LPS25H.THS_P_L, press_thresh & 0xFF);
     }
 
     // -------------------------------------------------------------------------
@@ -224,18 +240,26 @@ class LPS25H {
 
     // -------------------------------------------------------------------------
     function read(cb = null) {
-        if (!cb) {
-            throw "LPS25H read requires a callback function";
+        // This method takes some time, and so is async-only
+        if (cb == null) {
+            return {"error": "LPS25H read requires a callback function"};
         }
-        // Start a one-shot measurement
-        _writeReg(CTRL_REG2, 0x01);
-        // Read the reference pressure
-        local referencePressure = getReferencePressure();
-        // Get pressure in HPa
-        imp.wakeup(MEAS_TIME_SECONDS, function() {
-            local pressure = (getRawPressure() - referencePressure) / 4096.0;
-            cb(pressure);
-        }.bindenv(this));
+        // try/catch so errors thrown by I2C methods can be handed to the callback
+        // instead of just thrown again
+        try {
+            // Start a one-shot measurement
+            _writeReg(CTRL_REG2, 0x01);
+            // Read the reference pressure
+            local referencePressure = getReferencePressure();
+            // Get pressure in HPa
+            imp.wakeup(MEAS_TIME_SECONDS, function() {
+                local pressure = (getRawPressure() - referencePressure) / 4096.0;
+                cb({"pressure": pressure});
+            }.bindenv(this));
+        } catch (err) {
+            cb({"error": err, "pressure": null});
+        }
+
     }
 
     // -------------------------------------------------------------------------
