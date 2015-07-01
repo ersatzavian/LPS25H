@@ -12,11 +12,7 @@ The LPS25H can interface over I&sup2;C or SPI. This class addresses only I&sup2;
 
 To use the LPS25H, connect the I2C interface to any of the imp's I2C Interfaces. To see which pins can act as an I2C interface, see the [imp pin mux](https://electricimp.com/docs/hardware/imp/pinmux/) on the Electric Imp Developer Center.
 
-The LPS25H Interrupt Pin behavior can be configured through this class. The corresponding pin on the imp and associated callback are not configured or managed through this class. To use the interrupt pin:
-
-- Connect the LPS25H's "INT1" pin to an imp pin
-- Configure the imp pin connected to INT1 as a DIGITAL_IN with your desired callback function
-- Use the methods in this class to configure the interrupt behavior as needed
+The LPS25H's interrupts are not currently supported by this class, as issues have been observed with using the LPS25H's internal reference pressure registers to generate differential pressure measurements. 
 
 ![LPS25H Circuit](./circuit.png)
 
@@ -46,7 +42,9 @@ pressure.enable(true);    // Enable the sensor
 
 ### read(*callback*)
 
-The **read()** method reads the pressure in hPa and executes the callback passed as its only parameter with the result. The callback takes a single parameter, a table. If an error occurs during the reading, the table passed to the callback will contain a key "err", with a description of the error, and the pressure reading will be null. If the pressure is read successfully, it will be stored in the table with the key "pressure".
+The **read()** method reads the pressure in hPa and executes the optional callback passed as its only parameter with the result. The callback takes a single parameter, a table. If an error occurs during the reading, the table passed to the callback will contain a key "err", with a description of the error, and the pressure reading will be null. If the pressure is read successfully, it will be stored in the table with the key "pressure".
+
+If the callback is omitted, **read** executes synchronously and returns a table. As with the asynchrounous flow, the "err" key is present in the table if an error occurs. The pressure is stored with the "pressure" key.
 
 ```squirrel
 pressureSensor.read(function(result) {
@@ -58,64 +56,21 @@ pressureSensor.read(function(result) {
 });
 ```
 
+```squirrel
+local result = pressureSensor.read();
+if ("err" in result) {
+  server.error("An Error Occurred: "+result.err);
+} else {
+  server.log(format("Current Pressure: %0.2f hPa", result.pressure));
+}
+```
+
 ### getTemp()
 
 Returns temperature in degrees Celsius.
 
 ```squirrel
 server.log("Current Temperature: "+pressure.getTemp() + " C");
-```
-
-### configureInterrupt(*enable*, [*threshold*, *options*])
-
-This method configures the interrupt pin driver, threshold, and sources.
-
-- *enable* is a required boolean parameter. Set true to enable the interrupt pin.
-- *threshold* is an optional parameter, to set the interrupt threshold pressure. This threshold applies regardless of whether the interrupt is configured to fire on high differential pressure or low differential pressure. The threshold is expressed in hectopascals (hPa).
-- *options* is an optional bitfield which allows the pin driver and interrupt condition to be configured by OR'ing together the appropriate flags:
-
-| Constant | Description | Notes |
-| -------- | ----------- | ----- |
-| INT_ACTIVEHIGH | Interrupt pin active-high | Interrupt pin is active-low by default|
-| INT_PUSHPULL | Interrupt pin driver push-pull | Interrupt pin driver open-drain by default |
-| INT_LATCH | Interrupts latched | Clear latched interrupts by calling getInterruptSrc() |
-| INT_LOW_PRESSURE | Interrupt on pressure below threshold | |
-| INT_HIGH_PRESSURE | Interrupt on pressure above threshold | |
-
-```squirrel
-// Enable interrupt, configure as push-pull, active-high, latched. Fire interrupt if pressure > 800 hPa
-pressureSensor.configureInterrupt(true, 800, INT_ACTIVEHIGH | INT_PUSHPULL | INT_LATCH | INT_HIGH_PRESSURE);
-```
-
-```squirrel
-// Enable interrupt, configure as open-drain, active-low, latched. Fire interrupt if pressure < 760 hPa
-pressureSensor.configureInterrupt(ture, 760, INT_LATCH | INT_LOW_PRESSURE);
-```
-
-### getInterruptSrc() 
-
-Determine what caused an interrupt, and clear latched interrupt. This method returns an integer which can be compared to the following flags to determine the interrupt status and source. Latched interrupts are cleared as a side effect.
-
-| Constant | Description | Notes |
-| -------- | ----------- | ----- |
-| INT_ACTIVE | Set if an interrupt is currently active or latched | |
-| INT_HIGH_PRESSURE_ACTIVE | Set if the active or latched interrupt was due to a high pressure event | |
-| INT_LOW_PRESSURE_ACTIVE | Set if the active or latched interrupt was due to a low pressure event | |
-
-```squirrel
-// Check the interrupt source and clear the latched interrupt
-local intSrc = pressureSensor.getInterruptSrc();
-if (intSrc & LPS25H.INT_ACTIVE) {
-  // interrupt is active
-  if (intSrc & LPS25H.INT_HIGH_PRESSURE_ACTIVE) {
-    server.log("High Pressure Interrupt Occurred!");
-  } 
-  if (intSrc & LPS25H.INT_LOW_PRESSURE_ACTIVE) {
-    server.log("Low Pressure Interrupt Occurred!");
-  }
-} else {
-  server.log("No Interrupts Active");
-}
 ```
 
 ### setPressNpts(*numberOfReadings*)
@@ -146,24 +101,6 @@ pressure.setTempNpts(8);
 pressure.setTempNpts(64);
 ```
 
-### setFifoEnable(*state*)
-
-Enable (*state* = 1) or disable (*state* = 0) the internal FIFO for continuous pressure and temperature readings. Disabled by default.
-
-```squirrel
-// Enable internal FIFO for continuous pressure readings
-
-pressure.setFifoEnable(1);
-```
-
-### getReferencePressure()
-
-Get the internal offset pressure set in the factory. Returns a raw value in the same units as the raw pressure registers (hPa * 4096)
-
-```squirrel
-server.log("Internal Reference Pressure Offset = " + pressure.getReferencePressure());
-```
-
 ### softReset()
 
 Reset the LPS25H from software. Device will come up disabled.
@@ -171,10 +108,6 @@ Reset the LPS25H from software. Device will come up disabled.
 ```squirrel
 pressure.softReset();
 ```
-
-### getRawPressure()
-
-Returns the raw value of PRESS_OUT_H, PRESS_OUT_L and PRESS_OUT_XL. Units are hPa * 4096.
 
 ## License
 
