@@ -84,12 +84,12 @@ This method configures the interrupt pin driver, threshold, and sources.
 
 ```squirrel
 // Enable interrupt, configure as push-pull, active-high, latched. Fire interrupt if pressure > 800 hPa
-pressureSensor.configureInterrupt(true, 800, INT_ACTIVEHIGH | INT_PUSHPULL | INT_LATCH | INT_HIGH_PRESSURE);
+pressureSensor.configureInterrupt(true, 740, LPS25H.INT_ACTIVEHIGH | LPS25H.INT_PUSHPULL | LPS25H.INT_LATCH | LPS25H.INT_HIGH_PRESSURE);;
 ```
 
 ```squirrel
 // Enable interrupt, configure as open-drain, active-low, latched. Fire interrupt if pressure < 760 hPa
-pressureSensor.configureInterrupt(ture, 760, INT_LATCH | INT_LOW_PRESSURE);
+pressureSensor.configureInterrupt(ture, 760, LPS25H.INT_LATCH | LPS25H.INT_LOW_PRESSURE);
 ```
 
 ### getInterruptSrc() 
