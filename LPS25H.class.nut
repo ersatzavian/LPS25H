@@ -1,11 +1,9 @@
-// Setting a reference pressure appears to have no affect on the LPS25H
-// Interrupts can be successfully configured, but as the reference pressure is stuck at zero,
-// the only interrupt that can be generated is high absolute pressure.
-// As this isn't useful, I'm parking the work to get interrupts working on this branch
-// and ripping interrupts out of master. 
-// 
-// Best of luck to you who find this.
-
+// Copyright (c) 2015 Electric Imp
+// This file is licensed under the MIT License
+// http://opensource.org/licenses/MIT
+//
+// Driver class for the LPS25H Air Pressure Sensor
+// http://www.st.com/web/en/resource/technical/document/datasheet/DM00066332.pdf
 
 class LPS25H {
     static MAX_MEAS_TIME_SECONDS = 0.5; // seconds; time to complete one-shot pressure conversion
@@ -263,35 +261,28 @@ class LPS25H {
 
     // -------------------------------------------------------------------------
     function getReferencePressure() {
-        local low   = _readReg(REF_P_XL, 1);
-        local mid   = _readReg(REF_P_L, 1);
-        local high  = _readReg(REF_P_H, 1);
-        local val = ((high[0] << 16) | (mid[0] << 8) | low[0]);
-        if (val & 0x800000) { val = _twosComp(val, 0xFFFFFF); }
-        return val / 4096.0;
+        local low   = _readReg(RPDS_L, 1);
+        local high  = _readReg(RPDS_H, 1);
+        local val = ((high[0] << 8) | low[0]);
+        if (val & 0x8000) { val = _twosComp(val, 0xFFFF); }
+        return val / 16.0;
     }
     
     // -------------------------------------------------------------------------
     function setReferencePressure(val) {
-        val = (val * 4096).tointeger();
-        if (val < 0) { val = _twosComp(val, 0xFFFFFF); }
-        _writeReg(REF_P_XL, val & 0xFF);
-        _writeReg(REF_P_L, (val & 0xFF00) >> 8);
-        _writeReg(REF_P_H,  (val & 0xFF0000) >> 16);
-    }
-    
-    // -------------------------------------------------------------------------
-    function autoZero() {
-        _writeReg(CTRL_REG2, _readReg(CTRL_REG2, 1)[0] | 0x02);
+        val = (val * 16.0).tointeger();
+        if (val < 0) { val = _twosComp(val, 0xFFFF); }
+        _writeReg(RPDS_H, (val & 0xFF00) >> 8);
+        _writeReg(RPDS_L, (val & 0xFF));
     }
 
     // -------------------------------------------------------------------------
     // Returns raw pressure register values
-    function getRawPressure() {
+    function _getPressure() {
         local low   = _readReg(PRESS_OUT_XL, 1);
         local mid   = _readReg(PRESS_OUT_L, 1);
         local high  = _readReg(PRESS_OUT_H, 1);
-        return ((high[0] << 16) | (mid[0] << 8) | low[0]);
+        return ((high[0] << 16) | (mid[0] << 8) | low[0]) / 4096.0;
     }
 
     // -------------------------------------------------------------------------
@@ -312,11 +303,11 @@ class LPS25H {
             
             // Get pressure in HPa
             if (cb == null) {
-                local pressure = getRawPressure() / 4096.0;
-                return {"pressure": pressure};
+                local pressure = _getPressure() + getReferencePressure();
+                return {"pressure_": pressure};
             } else {
                 imp.wakeup(meas_time, function() {
-                    local pressure = getRawPressure() / 4096.0;
+                    local pressure = _getPressure() + getReferencePressure();
                     cb({"pressure": pressure});
                 }.bindenv(this));
             }
