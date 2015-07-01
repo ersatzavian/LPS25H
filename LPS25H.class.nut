@@ -244,17 +244,6 @@ class LPS25H {
     }
 
     // -------------------------------------------------------------------------
-    function setFifoEnable(state) {
-        local val = _readReg(CTRL_REG2, 1)[0];
-        if (state) {
-            val = val | 0x40;
-        } else {
-            val = val & 0xAF;
-        }
-        local res = _writeReg(CTRL_REG2, val & 0xFF);
-    }
-
-    // -------------------------------------------------------------------------
     function softReset() {
         _writeReg(CTRL_REG2, 0x84);
     }
