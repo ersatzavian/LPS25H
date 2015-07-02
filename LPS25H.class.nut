@@ -37,6 +37,7 @@ class LPS25H {
 
     static PRESSURE_SCALE = 4096.0;
     static REFERENCE_PRESSURE_SCALE = 16.0;
+    static MAX_REFERENCE_PRESSURE = 65534;
 
     // interrupt bitfield 
     static INT_HIGH_PRESSURE_ACTIVE = 0x01;
@@ -64,7 +65,12 @@ class LPS25H {
 
     // -------------------------------------------------------------------------
     function enable(state) {
-        local val = _readReg(CTRL_REG1, 1)[0];
+        local val = _readReg(CTRL_REG1, 1);
+        if (val == null) {
+            throw "I2C Error";
+        } else {
+            val = val[0];
+        }
         if (state) {
             val = val | 0x80;
         } else {
@@ -229,8 +235,8 @@ class LPS25H {
         local val = _readReg(INT_SOURCE, 1)[0];
         local intSrcTable = {"int_active": false, "high_pressure": false, "low_pressure": false};
         if (val & 0x04) { intSrcTable.int_active = true; }
-        if (val & 0x02) { intSrcTable.high_pressure = true; }
-        if (val & 0x01) { intSrcTable.low_pressure = true; }
+        if (val & 0x02) { intSrcTable.low_pressure = true; }
+        if (val & 0x01) { intSrcTable.high_pressure = true; }
         return intSrcTable;
     }
 
@@ -244,14 +250,15 @@ class LPS25H {
         local low   = _readReg(RPDS_L, 1);
         local high  = _readReg(RPDS_H, 1);
         local val = ((high[0] << 8) | low[0]);
-        if (val & 0x8000) { val = _twosComp(val, 0xFFFF); }
-        return val / REFERENCE_PRESSURE_SCALE;
+        if (val & 0x8000) { val = _twosComp(val, 0x7FFF); }
+        return (val * 1.0) / REFERENCE_PRESSURE_SCALE;
     }
     
     // -------------------------------------------------------------------------
     function setReferencePressure(val) {
         val = (val * REFERENCE_PRESSURE_SCALE).tointeger();
-        if (val < 0) { val = _twosComp(val, 0xFFFF); }
+        if (val < 0) { val = _twosComp(val, 0x7FFF); }
+        server.log(format("ref: 0x%04X", val));
         _writeReg(RPDS_H, (val & 0xFF00) >> 8);
         _writeReg(RPDS_L, (val & 0xFF));
     }
@@ -262,7 +269,7 @@ class LPS25H {
         // instead of just thrown again
         try {
             // if we're not in continuous-conversion mode
-            local datarate = getDatarate();
+            local datarate = getDataRate();
             local meas_time = 0;
             if (datarate == 0) {
                 // Start a one-shot measurement
@@ -300,7 +307,7 @@ class LPS25H {
 
         local temp_raw = (temp_h << 8) | temp_l;
         if (temp_raw & 0x8000) {
-            temp_raw = _twosComp(temp_raw, 0xFFFF);
+            temp_raw = _twosComp(temp_raw, 0x7FFF);
         }
         return (42.5 + (temp_raw / 480.0));
     }
@@ -319,6 +326,7 @@ class LPS25H {
         if (result == null) {
             throw "I2C read error: " + _i2c.readerror();
         }
+        return result;
     }
 
     // -------------------------------------------------------------------------
@@ -340,6 +348,8 @@ class LPS25H {
         local low   = _readReg(PRESS_OUT_XL, 1);
         local mid   = _readReg(PRESS_OUT_L, 1);
         local high  = _readReg(PRESS_OUT_H, 1);
-        return ((high[0] << 16) | (mid[0] << 8) | low[0]) / PRESSURE_SCALE;
+        local raw = ((high[0] << 16) | (mid[0] << 8) | low[0]);
+        if (raw & 0x800000) { raw = _twosComp(raw, 0x7FFFFF); }
+        return (raw * 1.0) / PRESSURE_SCALE;
     }
 }
