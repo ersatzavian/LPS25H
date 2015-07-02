@@ -24,7 +24,8 @@ The LPS25H Interrupt Pin behavior can be configured through this class. The corr
 
 ### Constructor
 
-The constructor takes two arguments to instantiate the class: a pre-configured I&sup2;C bus and the sensor’s I&sup2;C address. The I&sup2;C address is optional and defaults to 0xB8 (8-bit address).
+The constructor takes two arguments to instantiate the class: a pre-config
+ured I&sup2;C bus and the sensor’s I&sup2;C address. The I&sup2;C address is optional and defaults to 0xB8 (8-bit address).
 
 ```squirrel
 const LPS25H_ADDR = 0xBA;    // non-default 8-bit I2C Address for LPS25H (SA0 pulled high)
@@ -32,6 +33,18 @@ const LPS25H_ADDR = 0xBA;    // non-default 8-bit I2C Address for LPS25H (SA0 pu
 hardware.i2c89.configure(CLOCK_SPEED_400_KHZ);
 pressureSensor <- LPS25H(hardware.i2c89, LPS25H_ADDR);
 ```
+
+### Reset
+
+The LPS25H is not automatically reset when constructed so that Electric Imp applications can use the device through sleep/wake cycles without it losing state. To reset the device to a known state, call the *softReset* method:
+
+```squirrel
+hardware.i2c89.configure(CLOCK_SPEED_400_KHZ);
+pressureSensor <- LPS25H(hardware.i2c89);
+pressureSensor.softReset();
+```
+
+After a reset, the LPS25H will be disabled. Call *enable* to use the device.
 
 ### Class Methods
 
@@ -41,7 +54,7 @@ pressureSensor <- LPS25H(hardware.i2c89, LPS25H_ADDR);
 Enable (*state* = true) or disable (*state* = false) the LPS25H. The device must be enabled before attempting to read the pressure or temperature.
 
 ```squirrel
-pressure.enable(true);    // Enable the sensor
+pressureSensor.enable(true);    // Enable the sensor
 ```
 
 ### read(*callback*)
@@ -84,7 +97,7 @@ server.log("Current Temperature: "+pressure.getTemp() + " C");
 
 ### setReferencePressure(*pressure*)
 
-Set the reference pressure for differential pressure measurements and interrupts (see *configureInterrupt*). Reference Pressure is in hectopascals (hPa).
+Set the reference pressure for differential pressure measurements and interrupts (see *configureInterrupt*). Reference Pressure is in hectopascals (hPa). Negative pressures are supported. Reference Pressure range is +/- 2046 hPa.
 
 ```squirrel
 server.log("Internal Reference Pressure Offset = " + pressure.getReferencePressure());
@@ -152,30 +165,32 @@ if (intSrc.int_active) {
 
 ### setPressNpts(*numberOfReadings*)
 
-Set the number of readings taken and then internally averaged to produce a pressure result. The value provided will be rounded up to the nearest valid value: 8, 32 and 128.
+Set the number of readings taken and then internally averaged to produce a pressure result. The value provided will be rounded up to the nearest valid value: 8, 32 and 128. The actual value used is returned.
 
 ```squirrel
 // Fastest readings, lowest precision
-
-pressure.setPressNpts(8);
+pressureSensor.setPressNpts(8);
 
 // Slowest readings, highest precision
+pressure
+pressureSensor.setPressNpts(128);
 
-pressure.setPressNpts(128);
+// Rounding and checking result
+local actualNpts = pressureSensor.setPressNpts(30);
+server.log("Actual Pressure Npts = "+actualNpts); 
+// prints "Actual Pressure Npts = 32"
 ```
 
 ### setTempNpts(*numberOfReadings*)
 
-Set the number of readings taken and internally averaged to produce a temperature result. The value provided will be rounded up to the nearest valid value: 8, 16, 32 and 64.
+Set the number of readings taken and internally averaged to produce a temperature result. The value provided will be rounded up to the nearest valid value: 8, 16, 32 and 64. The actual value used is returned.
 
 ```squirrel
 // Fastest readings, lowest precision
-
-pressure.setTempNpts(8);
+pressureSensor.setTempNpts(8);
 
 // Slowest readings, highest precision
-
-pressure.setTempNpts(64);
+pressureSensor.setTempNpts(64);
 ```
 
 
@@ -184,7 +199,7 @@ pressure.setTempNpts(64);
 Reset the LPS25H from software. Device will come up disabled.
 
 ```squirrel
-pressure.softReset();
+pressureSensor.softReset();
 ```
 
 ## License
