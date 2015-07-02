@@ -6,6 +6,9 @@
 // http://www.st.com/web/en/resource/technical/document/datasheet/DM00066332.pdf
 
 class LPS25H {
+
+    static version = [2,0,0];
+
     static MAX_MEAS_TIME_SECONDS = 0.5; // seconds; time to complete one-shot pressure conversion
 
     static REF_P_XL        = 0x08;
@@ -32,6 +35,9 @@ class LPS25H {
     static RPDS_L          = 0x39;
     static RPDS_H          = 0x3A;
 
+    static PRESSURE_SCALE = 4096.0;
+    static REFERENCE_PRESSURE_SCALE = 16.0;
+
     // interrupt bitfield 
     static INT_HIGH_PRESSURE_ACTIVE = 0x01;
     static INT_LOW_PRESSURE_ACTIVE  = 0x02;
@@ -49,41 +55,6 @@ class LPS25H {
     constructor(i2c, addr = 0xB8) {
         _i2c = i2c;
         _addr = addr;
-
-        init();
-    }
-
-    // -------------------------------------------------------------------------
-    function init() {
-        softReset();
-    }
-
-    // -------------------------------------------------------------------------
-    function _twosComp(value, mask) {
-        value = ~(value & mask) + 1;
-        return -1 * (value & mask);
-    }
-
-    // -------------------------------------------------------------------------
-    function _readReg(reg, numBytes) {
-        local result = _i2c.read(_addr, reg.tochar(), numBytes);
-        if (result == null) {
-            throw "I2C read error: " + _i2c.readerror();
-        }
-        return result;
-    }
-
-    // -------------------------------------------------------------------------
-    function _writeReg(reg, ...) {
-        local s = reg.tochar();
-        foreach (b in vargv) {
-            s += b.tochar();
-        }
-        local result = _i2c.write(_addr, s);
-        if (result) {
-            throw "I2C write error: " + result;
-        }
-        return result;
     }
 
     // -------------------------------------------------------------------------
@@ -103,25 +74,30 @@ class LPS25H {
     }
 
     // -------------------------------------------------------------------------
-    function setDatarate(datarate) {
+    function setDataRate(datarate) {
+        local actualRate = 0.0;
         if (datarate <= 0) {
             datarate = 0x00;
         } else if (datarate <= 1) {
+            actualRate = 1.0;
             datarate = 0x01;
         } else if (datarate <= 7) {
+            actualRate = 7.0;
             datarate = 0x02;
         } else if (datarate <= 12.5) {
+            actualRate = 12.5;
             datarate = 0x03;
         } else {
-            // datarate = 25 Hz
+            actualRate = 25.0;
             datarate = 0x04;
         }
         local val = (_readReg(CTRL_REG1, 1)[0] & 0x8F);
         _writeReg(CTRL_REG1, (val | (datarate << 4)));
+        return actualRate;
     }
     
     // -------------------------------------------------------------------------
-    function getDatarate() {
+    function getDataRate() {
         local val = (_readReg(CTRL_REG1, 1)[0] & 0x70) >> 4;
         if (val == 0) {
             return 0.0;
@@ -140,42 +116,52 @@ class LPS25H {
     // Set the number of readings taken and internally averaged to give a pressure result
     // Selector field is 2 bits
     function setPressNpts(npts) {
+        local actualNpts = 8;
         if (npts <= 8) {
             // Average 8 readings
             npts = 0x00;
         } else if (npts <= 32) {
             // Average 32 readings
+            actualNpts = 32;
             npts = 0x01
         } else if (npts <= 128) {
             // Average 128 readings
+            actualNpts = 128;
             npts = 0x02;
         } else {
             // Average 512 readings
+            actualNpts = 512;
             npts = 0x03;
         }
         local val = _readReg(RES_CONF, 1)[0];
         local res = _writeReg(RES_CONF, (val & 0xFC) | npts);
+        return actualNpts;
     }
 
     // -------------------------------------------------------------------------
     // Set the number of readings taken and internally averaged to give a temperature result
     // Selector field is 2 bits
     function setTempNpts(npts) {
+        local actualNpts = 8;
         if (npts <= 8) {
             // Average 8 readings
             npts = 0x00;
         } else if (npts <= 16) {
             // Average 16 readings
+            actualNpts = 16;
             npts = 0x01
         } else if (npts <= 32) {
             // Average 32 readings
+            actualNpts = 32;
             npts = 0x02;
         } else {
             // Average 64 readings
+            actualNpts = 64;
             npts = 0x03;
         }
         local val = _readReg(RES_CONF, 1);
         local res = _writeReg(RES_CONF, (val & 0xF3) | (npts << 2));
+        return actualNpts;
     }
 
     // ------------------------------------ena-------------------------------------
@@ -240,7 +226,12 @@ class LPS25H {
 
     // -------------------------------------------------------------------------
     function getInterruptSrc() {
-        return _readReg(INT_SOURCE, 1)[0];
+        local val = _readReg(INT_SOURCE, 1)[0];
+        local intSrcTable = {"int_active": false, "high_pressure": false, "low_pressure": false};
+        if (val & 0x04) { intSrcTable.int_active = true; }
+        if (val & 0x02) { intSrcTable.high_pressure = true; }
+        if (val & 0x01) { intSrcTable.low_pressure = true; }
+        return intSrcTable;
     }
 
     // -------------------------------------------------------------------------
@@ -254,24 +245,15 @@ class LPS25H {
         local high  = _readReg(RPDS_H, 1);
         local val = ((high[0] << 8) | low[0]);
         if (val & 0x8000) { val = _twosComp(val, 0xFFFF); }
-        return val / 16.0;
+        return val / REFERENCE_PRESSURE_SCALE;
     }
     
     // -------------------------------------------------------------------------
     function setReferencePressure(val) {
-        val = (val * 16.0).tointeger();
+        val = (val * REFERENCE_PRESSURE_SCALE).tointeger();
         if (val < 0) { val = _twosComp(val, 0xFFFF); }
         _writeReg(RPDS_H, (val & 0xFF00) >> 8);
         _writeReg(RPDS_L, (val & 0xFF));
-    }
-
-    // -------------------------------------------------------------------------
-    // Returns raw pressure register values
-    function _getPressure() {
-        local low   = _readReg(PRESS_OUT_XL, 1);
-        local mid   = _readReg(PRESS_OUT_L, 1);
-        local high  = _readReg(PRESS_OUT_H, 1);
-        return ((high[0] << 16) | (mid[0] << 8) | low[0]) / 4096.0;
     }
 
     // -------------------------------------------------------------------------
@@ -304,7 +286,9 @@ class LPS25H {
             if (cb == null) {
                 return {"error": err, "pressure": null};
             } else {
-                cb({"error": err, "pressure": null});
+                imp.wakeup(0, function() {
+                    cb({"error": err, "pressure": null})
+                });
             }
         }
     }
@@ -319,5 +303,43 @@ class LPS25H {
             temp_raw = _twosComp(temp_raw, 0xFFFF);
         }
         return (42.5 + (temp_raw / 480.0));
+    }
+
+    // ------------------ PRIVATE METHODS -------------------------------------//
+
+    // -------------------------------------------------------------------------
+    function _twosComp(value, mask) {
+        value = ~(value & mask) + 1;
+        return -1 * (value & mask);
+    }
+
+    // -------------------------------------------------------------------------
+    function _readReg(reg, numBytes) {
+        local result = _i2c.read(_addr, reg.tochar(), numBytes);
+        if (result == null) {
+            throw "I2C read error: " + _i2c.readerror();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    function _writeReg(reg, ...) {
+        local s = reg.tochar();
+        foreach (b in vargv) {
+            s += b.tochar();
+        }
+        local result = _i2c.write(_addr, s);
+        if (result) {
+            throw "I2C write error: " + result;
+        }
+        return result;
+    }
+
+    // -------------------------------------------------------------------------
+    // Returns raw pressure register values
+    function _getPressure() {
+        local low   = _readReg(PRESS_OUT_XL, 1);
+        local mid   = _readReg(PRESS_OUT_L, 1);
+        local high  = _readReg(PRESS_OUT_H, 1);
+        return ((high[0] << 16) | (mid[0] << 8) | low[0]) / PRESSURE_SCALE;
     }
 }

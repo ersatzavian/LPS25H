@@ -103,9 +103,9 @@ server.log("Internal Reference Pressure Offset = " + pressure.getReferencePressu
 This method configures the interrupt pin driver, threshold, and sources.
 
 - *enable* is a required boolean parameter. Set true to enable the interrupt pin.
-- *threshold* is an optional parameter, to set the interrupt threshold pressure. Interrupts on generated on differential pressure events; a high differential pressure interrupt occurs if (Absolute Pressure - Reference Pressure) > Threshold, a low differential pressure interrupt occurs if (Absolute Pressure - Reference Pressure) < (-1.0 * Threshold). The threshold is expressed in hectopascals (hPa).
+- *threshold* is an optional parameter, to set the interrupt threshold pressure. Interrupts are generated on differential pressure events; a high differential pressure interrupt occurs if (Absolute Pressure - Reference Pressure) > Threshold, a low differential pressure interrupt occurs if (Absolute Pressure - Reference Pressure) < (-1.0 * Threshold). The threshold is expressed in hectopascals (hPa).
 - *options* is an optional bitfield which allows the pin driver and interrupt condition to be configured by OR'ing together the appropriate flags:
-Í
+
 | Constant | Description | Notes |
 | -------- | ----------- | ----- |
 | INT_ACTIVELOW | Interrupt pin active-high | Interrupt pin is active-high by default|
@@ -126,23 +126,23 @@ pressureSensor.configureInterrupt(ture, 20, LPS25H.INT_ACTIVELOW | LPS25H.INT_OP
 
 ### getInterruptSrc() 
 
-Determine what caused an interrupt, and clear latched interrupt. This method returns an integer which can be compared to the following flags to determine the interrupt status and source. Latched interrupts are cleared as a side effect.
+Determine what caused an interrupt, and clear latched interrupt. This method returns a table with three keys to provide information about which interrupts are active.
 
-| Constant | Description | Notes |
+| key | Description | Notes |
 | -------- | ----------- | ----- |
-| INT_ACTIVE | Set if an interrupt is currently active or latched | |
-| INT_HIGH_PRESSURE_ACTIVE | Set if the active or latched interrupt was due to a high pressure event | |
-| INT_LOW_PRESSURE_ACTIVE | Set if the active or latched interrupt was due to a low pressure event | |
+| int_active | *true* if an interrupt is currently active or latched | |
+| high_pressure | *true* if the active or latched interrupt was due to a high pressure event | |
+| low_pressure | *true* if the active or latched interrupt was due to a low pressure event | |
 
 ```squirrel
 // Check the interrupt source and clear the latched interrupt
 local intSrc = pressureSensor.getInterruptSrc();
-if (intSrc & LPS25H.INT_ACTIVE) {
+if (intSrc.int_active) {
   // interrupt is active
-  if (intSrc & LPS25H.INT_HIGH_PRESSURE_ACTIVE) {
+  if (intSrc.high_pressure) {
     server.log("High Pressure Interrupt Occurred!");
   } 
-  if (intSrc & LPS25H.INT_LOW_PRESSURE_ACTIVE) {
+  if (intSrc.low_pressure) {
     server.log("Low Pressure Interrupt Occurred!");
   }
 } else {
